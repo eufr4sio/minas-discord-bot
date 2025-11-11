@@ -1,7 +1,8 @@
-import os
 import nextcord
 from nextcord.ext import commands, tasks
 import datetime
+import os
+import requests
 from database import Database
 
 class GameDetection(commands.Cog):
@@ -13,6 +14,36 @@ class GameDetection(commands.Cog):
     
     def cog_unload(self):
         self.game_check.cancel()
+    
+    def get_steam_game_image(self, game_name):
+        """Get game image from Steam API with multiple size options"""
+        try:
+            # Search Steam store for the game
+            url = f"https://store.steampowered.com/api/storesearch/?term={game_name}&l=english&cc=us"
+            response = requests.get(url)
+            data = response.json()
+            
+            if data.get('items'):
+                # Try different image sizes in order of preference
+                item = data['items'][0]
+                
+                # Try to get header image first (largest)
+                if item.get('header_image'):
+                    return item['header_image']
+                # Try large image
+                elif item.get('large_image'):
+                    return item['large_image']
+                # Try small image
+                elif item.get('small_image'):
+                    return item['small_image']
+                # Try tiny image
+                elif item.get('tiny_image'):
+                    return item['tiny_image']
+                    
+        except:
+            pass  # If anything fails, return None
+        
+        return None
     
     @tasks.loop(seconds=30)  # Check every 30 seconds
     async def game_check(self):
@@ -61,28 +92,45 @@ class GameDetection(commands.Cog):
             print(f"❌ Could not find alert channel with ID {alert_channel_id}")
             return
         
-        # Create beautiful embed
+        # Create clean, professional embed
         embed = nextcord.Embed(
-            title="🎮 Game Alert!",
-            description=f"**{member.display_name}** has started playing **{game_name}**!",
-            color=nextcord.Color.green(),
-            timestamp=datetime.datetime.now()
+            title=f"🎮 {game_name}",
+            description=f"**{member.display_name}** is now playing!",
+            color=0x3498db  # Professional blue
         )
         
-        # Add user avatar
+        # Try to get Steam game image first (highest priority)
+        game_image = self.get_steam_game_image(game_name)
+        
+        # Add game image if available (no user avatar fallback)
+        if game_image:
+            embed.set_image(url=game_image)
+        
+        # Add small circle avatar before username
         embed.set_thumbnail(url=member.display_avatar.url)
         
         # Add game info
-        embed.add_field(name="🎯 Game", value=game_name, inline=True)
-        embed.add_field(name="👤 Player", value=member.mention, inline=True)
-        embed.add_field(name="📅 Started", value=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), inline=True)
+        embed.add_field(
+            name="👤 Player", 
+            value=member.display_name,  # Just username, no mention
+            inline=True
+        )
+        embed.add_field(
+            name="📅 Started", 
+            value=datetime.datetime.now().strftime("%B %d, %Y at %H:%M"),  # 24-hour format
+            inline=True
+        )
         
         # Ping registered users
         ping_list = [f"<@{user_id}>" for user_id in registered_users if user_id != member.id]
         if ping_list:
-            embed.set_footer(text=f"🔔 Notifying: {', '.join(ping_list[:3])}{'...' if len(ping_list) > 3 else ''}")
+            embed.add_field(
+                name="🔔 Notifying", 
+                value=f"{len(ping_list)} players", 
+                inline=True
+            )
         
-        # Send the notification
+        # Send notification
         await channel.send(content=" ".join(ping_list), embed=embed)
         print(f"🎮 Sent notification for {member.display_name} playing {game_name}")
 

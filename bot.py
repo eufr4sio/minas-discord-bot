@@ -1,24 +1,22 @@
 import os
 import nextcord
 from nextcord.ext import commands
+import asyncio
 from dotenv import load_dotenv
+from database import Database
 
-load_dotenv()
+# Add this line after bot = commands.Bot(...)
 
-intents = nextcord.Intents.default()
-intents.presences = True
-intents.members = True
-intents.guilds = True
-intents.message_content = True
-
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=nextcord.Intents.default())
+bot.load_extension("cogs.games")
+bot.load_extension("cogs.gamedetection")
+bot.load_extension("cogs.events")
 
 @bot.event
 async def on_ready():
     print(f'✅ {bot.user} has connected to Discord!')
     print(f'🎯 Running on server: {bot.guilds[0].name if bot.guilds else "No servers"}')
     
-    # Set bot status
     await bot.change_presence(
         activity=nextcord.Activity(
             type=nextcord.ActivityType.watching,
@@ -42,6 +40,7 @@ async def info(ctx):
     )
     embed.add_field(name="Prefix", value="`!`")
     embed.add_field(name="Version", value="1.0.0")
+    embed.add_field(name="Features", value="✅ Game Registration\n✅ Game Detection\n✅ Event System", inline=True)
     embed.set_footer(text=f"Requested by {ctx.author.name}")
     await ctx.send(embed=embed)
 
