@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minas-bot
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    volumes:
+      # Mount the local database file into the container
+      # This ensures your bot.db file is persisted even if the container is rebuilt
+      - ./bot.db:/app/bot.db
